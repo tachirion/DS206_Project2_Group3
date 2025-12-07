@@ -1,0 +1,5 @@
+[SQL_SERVER]
+driver=ODBC Driver 17 for SQL Server
+server=localhost\SQLEXPRESS
+database=ORDER_DDS
+trusted_connection=yes
