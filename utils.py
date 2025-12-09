@@ -29,13 +29,6 @@ def get_sql_config(filename: str, database: str) -> Dict[str, Any]:
         Server=DESKTOP-I2N8O9P
         Database=Orders_ER
         Trusted_Connection=yes
-        Encrypt=no
-
-        [Database3]
-        Driver={ODBC Driver 18 for SQL Server}
-        Server=DESKTOP-I2N8O9P
-        Database=Orders_ER
-        Trusted_Connection=yes
         Encrypt=yes
         TrustServerCertificate=yes
     """
@@ -115,10 +108,10 @@ def find_primary_key(cursor, table_name, schema):
 
 
 def load_query(query_name, input_dir):
+    sql_script = None
     for script in os.listdir(input_dir):
         if query_name in script:
-            with open(input_dir + '\\' + script, 'r') as script_file:
+            with open(os.path.join(input_dir, script), 'r') as script_file:
                 sql_script = script_file.read()
             break
     return sql_script
-    

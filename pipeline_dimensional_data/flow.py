@@ -1,10 +1,8 @@
 import uuid
-import logging
-from datetime import datetime
+from logging import getLogger
 
 from pipeline_dimensional_data import config
 from pipeline_dimensional_data import tasks
-from logging import getLogger
 
 logger = getLogger(__name__)
 
