@@ -1,143 +1,159 @@
-"""
-Script to load data from raw_data.xlsx into staging tables.
-
-This script reads Excel data and loads it into the staging schema tables
-that the dimensional pipeline expects.
-"""
-
+import argparse
 import pandas as pd
 import pyodbc
-from utils import get_sql_config, create_connection_string
-from pipeline_dimensional_data import config
+import os
+import re
 
-# Mapping of Excel sheet names to staging table names
-SHEET_TO_TABLE = {
-    "Categories": "staging.Categories",
-    "Customers": "staging.Customers",
-    "Employees": "staging.Employees",
-    "Products": "staging.Products",
-    "Region": "staging.Region",
-    "Shippers": "staging.Shippers",
-    "Suppliers": "staging.Suppliers",
-    "Territories": "staging.Territories",
-    "Orders": "staging.Orders",
-    "OrderDetails": "staging.OrderDetails",
-}
+# ----------------------------
+# SQL SERVER CONNECTION
+# ----------------------------
 
-
-def load_excel_to_staging(excel_file: str = "raw_data.xlsx", clear_existing: bool = True):
-    """
-    Load data from Excel file into staging tables.
-    
-    Args:
-        excel_file: Path to the Excel file
-        clear_existing: If True, truncate staging tables before loading
-    """
-    # Read Excel file
-    try:
-        excel_data = pd.read_excel(excel_file, sheet_name=None)
-        print(f"✓ Loaded Excel file: {excel_file}")
-        print(f"  Found {len(excel_data)} sheets")
-    except FileNotFoundError:
-        print(f"✗ Error: File not found: {excel_file}")
-        return False
-    except Exception as e:
-        print(f"✗ Error reading Excel file: {e}")
-        return False
-    
-    # Connect to database
-    try:
-        cfg = get_sql_config(config.SQL_CFG_FILE, config.SQL_CFG_SECTION)
-        conn_str = create_connection_string(cfg)
-        conn = pyodbc.connect(conn_str, autocommit=False)
-        cursor = conn.cursor()
-        print(f"✓ Connected to database: {cfg['Database']}")
-    except Exception as e:
-        print(f"✗ Error connecting to database: {e}")
-        return False
-    
-    try:
-        # Clear existing data if requested
-        if clear_existing:
-            print("\nClearing existing staging data...")
-            for table in SHEET_TO_TABLE.values():
-                try:
-                    cursor.execute(f"TRUNCATE TABLE {table}")
-                    print(f"  ✓ Cleared {table}")
-                except Exception as e:
-                    print(f"  ⚠ Could not clear {table}: {e}")
-            conn.commit()
-        
-        # Load each sheet
-        print("\nLoading data from Excel sheets...")
-        for sheet_name, df in excel_data.items():
-            if sheet_name not in SHEET_TO_TABLE:
-                print(f"  ⚠ Skipping sheet '{sheet_name}' (no matching staging table)")
-                continue
-            
-            table_name = SHEET_TO_TABLE[sheet_name]
-            
-            # Prepare data for insertion (exclude staging_raw_id_sk as it's IDENTITY)
-            df_clean = df.copy()
-            if 'staging_raw_id_sk' in df_clean.columns:
-                df_clean = df_clean.drop(columns=['staging_raw_id_sk'])
-            
-            # Get column names
-            columns = ', '.join(df_clean.columns)
-            placeholders = ', '.join(['?' for _ in df_clean.columns])
-            
-            # Insert data
-            insert_sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-            
-            rows_inserted = 0
-            for _, row in df_clean.iterrows():
-                try:
-                    cursor.execute(insert_sql, tuple(row.values))
-                    rows_inserted += 1
-                except Exception as e:
-                    print(f"  ⚠ Error inserting row into {table_name}: {e}")
-            
-            conn.commit()
-            print(f"  ✓ Loaded {rows_inserted} rows into {table_name}")
-        
-        print("\n✓ Excel data loaded successfully!")
-        return True
-        
-    except Exception as e:
-        conn.rollback()
-        print(f"\n✗ Error loading data: {e}")
-        return False
-    finally:
-        conn.close()
-
-
-def main():
-    """Main function to run the Excel loader."""
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Load Excel data into staging tables")
-    parser.add_argument("--excel_file", default="raw_data.xlsx", help="Path to Excel file")
-    parser.add_argument("--keep_existing", action="store_true", help="Keep existing data (don't truncate)")
-    
-    args = parser.parse_args()
-    
-    success = load_excel_to_staging(
-        excel_file=args.excel_file,
-        clear_existing=not args.keep_existing
+def get_connection():
+    return pyodbc.connect(
+        "DRIVER={ODBC Driver 17 for SQL Server};"
+        "SERVER=DESKTOP-8K8UGGP\\SQLEXPRESS;"
+        "DATABASE=ORDER_DDS;"
+        "Trusted_Connection=yes;"
     )
-    
-    if success:
-        print("\n✓ Ready to run pipeline!")
-        print("  Run: python main.py --start_date YYYY-MM-DD --end_date YYYY-MM-DD")
-    else:
-        print("\n✗ Failed to load data. Please check errors above.")
-        return 1
-    
-    return 0
 
+
+# ----------------------------
+# CLEANING FUNCTIONS
+# ----------------------------
+
+def clean_dataframe(df):
+    """
+    Force all columns to text, drop problematic columns, clean .0 floats,
+    clean dates, remove NaN.
+    """
+
+    # Convert everything to string
+    df = df.astype(str)
+
+    # Replace NaN/"nan"/"None" values with empty string
+    df = df.replace("nan", "").replace("None", "").fillna("")
+
+    # Remove pandas float tails:  "5.0" → "5"
+    for col in df.columns:
+        df[col] = df[col].str.replace(r"\.0$", "", regex=True)
+
+    # Drop long-text columns
+    df = df.drop(columns=["Notes", "PhotoPath"], errors="ignore")
+
+    # Clean date formats (optional)
+    date_cols = ["OrderDate", "RequiredDate", "ShippedDate", 
+                 "BirthDate", "HireDate"]
+
+    for col in date_cols:
+        if col in df.columns:
+            df[col] = df[col].apply(clean_date)
+
+    return df
+
+
+def clean_date(value):
+    """Attempts to convert any date-like value to yyyy-mm-dd, else empty string."""
+    value = str(value).strip()
+
+    # Empty or placeholder values
+    if value in ["", "0", "0000-00-00", "NaT"]:
+        return ""
+
+    # Already correct ISO format
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return value
+
+    # Try parsing common US/EU date formats
+    try:
+        parsed = pd.to_datetime(value, errors="coerce")
+        if pd.isna(parsed):
+            return ""
+        return parsed.strftime("%Y-%m-%d")
+    except:
+        return ""
+
+
+# ----------------------------
+# LOAD A SINGLE SHEET INTO A STAGING TABLE
+# ----------------------------
+
+def load_sheet(cursor, df, sheet_name):
+    staging_table = f"staging.{sheet_name}"
+
+    print(f"➡️ Loading sheet '{sheet_name}' into {staging_table}...")
+
+    if df.empty:
+        print(f"⚠️ Sheet '{sheet_name}' is empty — skipping.")
+        return
+
+    df = clean_dataframe(df)
+
+    # Build INSERT SQL dynamically
+    cols = ", ".join(df.columns)
+    placeholders = ", ".join(["?"] * len(df.columns))
+    sql = f"INSERT INTO {staging_table} ({cols}) VALUES ({placeholders})"
+
+    # Convert dataframe rows to list of tuples
+    data = list(df.itertuples(index=False, name=None))
+
+    try:
+        cursor.executemany(sql, data)
+        print(f"   ✔ Loaded {len(df)} rows into {staging_table}")
+    except Exception as e:
+        print("\n❌ SQL Insert Error!")
+        print("SQL:", sql)
+        print("Sample row:", data[0] if data else "NO DATA")
+        raise e
+
+
+# ----------------------------
+# MAIN FUNCTION TO LOAD ALL SHEETS
+# ----------------------------
+
+def load_excel_to_staging(file_path):
+
+    if not os.path.exists(file_path):
+        print(f"❌ ERROR: File not found: {file_path}")
+        return
+
+    print(f"📄 Loading Excel file: {file_path}")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Clear staging tables
+    staging_tables = [
+        "Orders", "OrderDetails", "Products", "Customers",
+        "Employees", "Region", "Shippers", "Suppliers", "Territories"
+    ]
+
+    print("🧹 Clearing staging tables...")
+    for table in staging_tables:
+        cursor.execute(f"DELETE FROM staging.{table}")
+        conn.commit()
+
+    # Load Excel with all sheets
+    excel_file = pd.ExcelFile(file_path)
+
+    for sheet in excel_file.sheet_names:
+        df = excel_file.parse(sheet)
+        load_sheet(cursor, df, sheet)
+
+    conn.commit()
+    conn.close()
+
+    print("\n✅ Excel data loaded successfully!")
+    print("➡️ Next: run the pipeline:")
+    print("   python main.py --start_date 1996-01-01 --end_date 1996-12-31")
+
+
+# ----------------------------
+# COMMAND LINE ENTRY
+# ----------------------------
 
 if __name__ == "__main__":
-    import sys
-    sys.exit(main())
+    parser = argparse.ArgumentParser(description="Load Excel data into SQL staging tables.")
+    parser.add_argument("--excel_file", required=True, help="Path to Excel file")
+    args = parser.parse_args()
 
-
+    load_excel_to_staging(args.excel_file)
