@@ -6,8 +6,8 @@ GO
 /* =========================
    PARAMETERS (set these)
    ========================= */
-DECLARE @start_date DATE = '1996-01-01';
-DECLARE @end_date   DATE = '1998-12-31';
+DECLARE @start_date DATE = '{{START_DATE}}';
+DECLARE @end_date   DATE = '{{END_DATE}}';
 DECLARE @snapshot_dt DATE = CAST(SYSDATETIME() AS DATE);
 
 /* Optional: capture SOR_SK for the staging tables (if your fact_error table has these columns) */
