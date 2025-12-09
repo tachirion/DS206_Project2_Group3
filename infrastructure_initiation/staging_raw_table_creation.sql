@@ -28,7 +28,7 @@ GO
 
 CREATE TABLE staging.Categories (
     staging_raw_id_sk INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    CategoryID INT NOT NULL,
+    CategoryID NVARCHAR(100) NOT NULL,
     CategoryName NVARCHAR(50) NULL,
     Description NVARCHAR(500) NULL
 );
@@ -50,35 +50,35 @@ CREATE TABLE staging.Customers (
 
 CREATE TABLE staging.Employees (
     staging_raw_id_sk INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    EmployeeID INT NOT NULL,
+    EmployeeID NVARCHAR(100) NOT NULL,
     LastName NVARCHAR(50) NULL,
     FirstName NVARCHAR(50) NULL,
     Title NVARCHAR(100) NULL,
     TitleOfCourtesy NVARCHAR(20) NULL,
-    BirthDate DATE NULL,
-    HireDate DATE NULL,
+    BirthDate NVARCHAR(100) NULL,
+    HireDate NVARCHAR(100) NULL,
     Address NVARCHAR(200) NULL,
     City NVARCHAR(100) NULL,
     Region NVARCHAR(100) NULL,
     PostalCode NVARCHAR(20) NULL,
     Country NVARCHAR(100) NULL,
     HomePhone NVARCHAR(50) NULL,
-    Extension INT NULL,
+    Extension NVARCHAR(100) NULL,
     Notes NVARCHAR(MAX) NULL,
-    ReportsTo INT NULL,
+    ReportsTo NVARCHAR(100) NULL,
     PhotoPath NVARCHAR(300) NULL
 );
 
 CREATE TABLE staging.Shippers (
     staging_raw_id_sk INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    ShipperID INT NOT NULL,
+    ShipperID NVARCHAR(100) NOT NULL,
     CompanyName NVARCHAR(200) NULL,
     Phone NVARCHAR(50) NULL
 );
 
 CREATE TABLE staging.Suppliers (
     staging_raw_id_sk INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    SupplierID INT NOT NULL,
+    SupplierID NVARCHAR(100) NOT NULL,
     CompanyName NVARCHAR(200) NULL,
     ContactName NVARCHAR(200) NULL,
     ContactTitle NVARCHAR(200) NULL,
@@ -94,7 +94,7 @@ CREATE TABLE staging.Suppliers (
 
 CREATE TABLE staging.Region (
     staging_raw_id_sk INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    RegionID INT NOT NULL,
+    RegionID NVARCHAR(100) NOT NULL,
     RegionDescription NVARCHAR(100) NULL,
     RegionCategory NVARCHAR(50) NULL,
     RegionImportance NVARCHAR(50) NULL
@@ -102,52 +102,52 @@ CREATE TABLE staging.Region (
 
 CREATE TABLE staging.Territories (
     staging_raw_id_sk INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    TerritoryID INT NOT NULL,
+    TerritoryID NVARCHAR(100) NOT NULL,
     TerritoryDescription NVARCHAR(200) NULL,
     TerritoryCode NVARCHAR(20) NULL,
-    RegionID INT NULL
+    RegionID NVARCHAR(100) NULL
 );
 
 CREATE TABLE staging.Products (
     staging_raw_id_sk INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    ProductID INT NOT NULL,
+    ProductID NVARCHAR(100) NOT NULL,
     ProductName NVARCHAR(200) NULL,
-    SupplierID INT NULL,
-    CategoryID INT NULL,
+    SupplierID NVARCHAR(100) NULL,
+    CategoryID NVARCHAR(100) NULL,
     QuantityPerUnit NVARCHAR(100) NULL,
-    UnitPrice DECIMAL(18,2) NULL,
-    UnitsInStock INT NULL,
-    UnitsOnOrder INT NULL,
-    ReorderLevel INT NULL,
-    Discontinued BIT NULL
+    UnitPrice NVARCHAR(100) NULL,
+    UnitsInStock NVARCHAR(100) NULL,
+    UnitsOnOrder NVARCHAR(100) NULL,
+    ReorderLevel NVARCHAR(100) NULL,
+    Discontinued NVARCHAR(100) NULL
 );
 
 CREATE TABLE staging.Orders (
     staging_raw_id_sk INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    OrderID INT NOT NULL,
+    OrderID NVARCHAR(100) NOT NULL,
     CustomerID NVARCHAR(10) NOT NULL,
-    EmployeeID INT NOT NULL,
-    OrderDate DATE NULL,
-    RequiredDate DATE NULL,
-    ShippedDate DATE NULL,
-    ShipVia INT NULL,                 -- FK to Shippers.ShipperID
-    Freight DECIMAL(18,2) NULL,
+    EmployeeID NVARCHAR(100) NOT NULL,
+    OrderDate NVARCHAR(100) NULL,
+    RequiredDate NVARCHAR(100) NULL,
+    ShippedDate NVARCHAR(100) NULL,
+    ShipVia NVARCHAR(100) NULL,                 -- FK to Shippers.ShipperID
+    Freight NVARCHAR(100) NULL,
     ShipName NVARCHAR(200) NULL,
     ShipAddress NVARCHAR(200) NULL,
     ShipCity NVARCHAR(100) NULL,
     ShipRegion NVARCHAR(100) NULL,
     ShipPostalCode NVARCHAR(20) NULL,
     ShipCountry NVARCHAR(100) NULL,
-    TerritoryID INT NULL              -- FK to Territories.TerritoryID (per project spec)
+    TerritoryID NVARCHAR(100) NULL              -- FK to Territories.TerritoryID (per project spec)
 );
 
 CREATE TABLE staging.OrderDetails (
     staging_raw_id_sk INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    OrderID INT NOT NULL,
-    ProductID INT NOT NULL,
-    UnitPrice DECIMAL(18,2) NULL,
-    Quantity INT NULL,
-    Discount DECIMAL(5,4) NULL
+    OrderID NVARCHAR(100) NOT NULL,
+    ProductID NVARCHAR(100) NOT NULL,
+    UnitPrice NVARCHAR(100) NULL,
+    Quantity NVARCHAR(100) NULL,
+    Discount NVARCHAR(100) NULL
 );
 GO
 
